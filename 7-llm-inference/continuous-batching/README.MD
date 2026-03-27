@@ -10,7 +10,14 @@ Reference: [HuggingFace blog](https://huggingface.co/blog/continuous_batching)
 
 `model.ipynb`: contains the same transformer model but with some additional explanation
 
+## Setup
+```
+$ uv venv
+$ source .venv/bin/activate
+$ uv pip install torch numpy
+```
+
 ## Run Demo
 ```
-python demo.py
+$ python demo.py
 ```
