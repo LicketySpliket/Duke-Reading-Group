@@ -101,7 +101,7 @@ class BatchedMHA(nn.Module):
         V = self.w_v(x)  # N_TOKENS x HIDDEN_SIZE
 
         # last dimension (with size HIDDEN_SIZE) has the Q, K, and V values concatenated across heads (HIDDEN_SIZE = N_HEADS * D_HEAD)
-        # reshape so that attn head is the first dimension and the last dimension has size D_HEAD
+        # reshape so that last dimension is split by attn head into a new dimension, last dimension has size D_HEAD
         Q = Q.view(n_tokens, self.n_heads, self.d_head)  # N_TOKENS x N_HEADS x D_HEAD
         K = K.view(n_tokens, self.n_heads, self.d_head)  # N_TOKENS x N_HEADS x D_HEAD
         V = V.view(n_tokens, self.n_heads, self.d_head)  # N_TOKENS x N_HEADS x D_HEAD
