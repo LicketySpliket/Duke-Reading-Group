@@ -96,7 +96,7 @@ def run_demo():
             request = arrivals.popleft()
             request_queue.append(request)
             print(
-                f"step {step}: arrived {request.id} "
+                f"step {step}: arrived request with id {request.id} "
                 f"(prompt length={request.prompt_length}, predetermined decode length={request.decode_tokens})"
             )
 
@@ -177,9 +177,9 @@ def run_demo():
             f"output {tuple(output.shape)}"
         )
         if decode_ids:
-            print(f"  decode: {decode_ids}")
+            print(f"  ran decode pass for: {decode_ids}")
         if prefill_ids:
-            print(f"  prefill: {prefill_ids}")
+            print(f"  ran prefill pass for: {prefill_ids}")
 
         # get token id with max logit for each input token
         next_token_ids = output.argmax(dim=-1)  # (N_DECODE + N_PREFILL_TOKENS) x 1
@@ -226,7 +226,9 @@ def run_demo():
             f"generated={request.generated_tokens}/{request.decode_tokens})"
             for request in decode_requests
         ]
-        print(f"  active decode sequences: {decode_info}")
+        print("  remaining active decode sequences:")
+        for info in decode_info:
+            print(f"    {info}")
 
         step += 1
 
