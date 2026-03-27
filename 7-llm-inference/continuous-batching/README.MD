@@ -21,3 +21,7 @@ $ uv pip install torch numpy
 ```
 $ python demo.py
 ```
+
+## Some Simplifications Compared to Real Inference Servers
+- The KV cache is allocated for the max sequence length for all possible slots. In an actual scenario this would be a waste of space.
+- Assumes that all prefill can be handled in one forward pass
