@@ -152,11 +152,7 @@ class BatchedMHA(nn.Module):
         weighted_vals_decode = torch.matmul(
             attn_weights_decode, v_cache_decode
         )  # N_DECODE x N_HEADS x 1 x D_HEAD
-        weighted_vals_decode = weighted_vals_decode.squeeze(2).view(
-            n_decode, self.hidden_size
-        )  # N_DECODE x HIDDEN_SIZE
-
-        out_decode = weighted_vals_decode  # N_DECODE x HIDDEN_SIZE
+        out_decode = weighted_vals_decode.squeeze(2)  # N_DECODE x N_HEADS x D_HEAD
         # ========================= end decode sequences =========================
 
         # ========================= start prefill sequences =========================
@@ -197,14 +193,12 @@ class BatchedMHA(nn.Module):
             attn_weights_prefill, V_prefill
         )  # N_HEADS x N_PREFILL_TOKENS x D_HEAD
 
-        # For stacked layers, keep one output row per prefill token.
-        out_prefill = (
-            weighted_vals_prefill.permute(1, 0, 2)
-            .contiguous()
-            .view(sum(prefill_lengths), self.hidden_size)
-        )  # N_PREFILL_TOKENS x HIDDEN_SIZE
+        # move tokens to the first dimension
+        out_prefill = weighted_vals_prefill.permute(
+            1, 0, 2
+        ).contiguous()  # N_PREFILL_TOKENS x N_HEADS x D_HEAD
 
-        # write packed prefill tokens back to per-sequence cache slots
+        # write KV cache for prefill sequences
         if n_prefill > 0:
             prefill_batches = torch.tensor(
                 prefill_batch_idxs, device=k_cache.device, dtype=torch.long
@@ -212,9 +206,14 @@ class BatchedMHA(nn.Module):
             prefill_lengths_tensor = torch.tensor(
                 prefill_lengths, device=k_cache.device, dtype=torch.long
             )
+
+            # this creates something like this: [idx1, idx1, ... , idx1, idx2, ... , idx2, idx3, ... , idx3, ...]
+            # where count of each index equals the corresponding prefill sequence length
             prefill_rows = torch.repeat_interleave(
                 prefill_batches, prefill_lengths_tensor
             )
+            
+            # each row corresponds to a prefill sequence, and has indexes 0...(prefill sequence length - 1)
             prefill_cols = torch.cat(
                 [
                     torch.arange(length, device=k_cache.device)
@@ -230,6 +229,11 @@ class BatchedMHA(nn.Module):
         # combine decode and prefill
         out = torch.concat(
             [out_decode, out_prefill]
+        )  # (N_DECODE + N_PREFILL_TOKENS) x N_HEADS x D_HEAD
+
+        # concatenate along heads
+        out = out.view(
+            n_tokens, self.hidden_size
         )  # (N_DECODE + N_PREFILL_TOKENS) x HIDDEN_SIZE
 
         # final output projection
@@ -275,7 +279,7 @@ class SingleLayerTransformer(nn.Module):
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
     ) -> torch.Tensor:
-        x = self.embedding(token_ids) # (N_DECODE + N_PREFILL_TOKENS) x HIDDEN_SIZE
+        x = self.embedding(token_ids)  # (N_DECODE + N_PREFILL_TOKENS) x HIDDEN_SIZE
         attn_input = self.attn_norm(x)
         x = x + self.attn(
             x=attn_input,
@@ -290,7 +294,7 @@ class SingleLayerTransformer(nn.Module):
         )
         x = x + self.mlp(self.mlp_norm(x))
         x = self.final_norm(x)
-        return self.unembed(x) # (N_DECODE + N_PREFILL_TOKENS) x VOCAB_SIZE
+        return self.unembed(x)  # (N_DECODE + N_PREFILL_TOKENS) x VOCAB_SIZE
 
 
 class LayerNorm(nn.Module):
